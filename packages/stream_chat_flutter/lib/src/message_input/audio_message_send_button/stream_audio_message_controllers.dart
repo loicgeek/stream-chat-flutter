@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 
 /// Widget that displays the audio recording controls.
@@ -18,20 +18,25 @@ class StreamAudioMessageControllers extends StatefulWidget {
 class _StreamAudioMessageControllersState
     extends State<StreamAudioMessageControllers> with TickerProviderStateMixin {
   Color? iconColor;
-  DateTime? _startTime;
-  Timer? _timer;
   late final AnimationController _controller;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final audioRecordingMessageTheme = AudioRecordingMessageTheme.of(context);
+  void initState() {
+    super.initState();
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
     _controller.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final audioRecordingMessageTheme = AudioRecordingMessageTheme.of(context);
+
+    
 
     Future.delayed(
       const Duration(seconds: 1),
@@ -40,41 +45,21 @@ class _StreamAudioMessageControllersState
           setState(() {
             iconColor =
                 audioRecordingMessageTheme.recordingIndicatorColorActive;
-            _startTime = DateTime.now();
           });
         }
-      },
-    );
-
-    _timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) {
-        if (_startTime == null) {
-          return;
-        }
-        setState(() {});
       },
     );
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  String get duration {
-    if (_startTime == null) {
-      return '0:00';
-    }
-    final diff = DateTime.now().difference(_startTime!);
-    return '${diff.inMinutes}:${diff.inSeconds.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final audioRecordingMessageTheme = AudioRecordingMessageTheme.of(context);
+    final _recordingController = context.watch<StreamRecordingController>();
 
     return SlideTransition(
       position: Tween<Offset>(
@@ -93,18 +78,9 @@ class _StreamAudioMessageControllersState
             color: iconColor,
             size: 24,
           ),
-          if (_startTime != null) ...[
+          if (_recordingController.isRecording) ...[
             const SizedBox(width: 8),
-            SizedBox(
-              width: 50,
-              child: Text(
-                duration,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: audioRecordingMessageTheme.recordingIndicatorColorIdle,
-                ),
-              ),
-            ),
+            const _Timer(),
           ] else
             const SizedBox(width: 58),
           const Expanded(
@@ -113,6 +89,34 @@ class _StreamAudioMessageControllersState
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Timer extends StatelessWidget {
+  const _Timer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final audioRecordingMessageTheme = AudioRecordingMessageTheme.of(context);
+    final recordingController = context.watch<StreamRecordingController>();
+
+    var duration = '0:00';
+    if (recordingController.isRecording) {
+      final recordingDuration = recordingController.duration;
+      duration =
+          '${recordingDuration.inMinutes}:${recordingDuration.inSeconds.remainder(60).toString().padLeft(2, '0')}';
+    }
+
+    return SizedBox(
+      width: 50,
+      child: Text(
+        duration,
+        style: TextStyle(
+          fontSize: 16,
+          color: audioRecordingMessageTheme.recordingIndicatorColorIdle,
+        ),
       ),
     );
   }

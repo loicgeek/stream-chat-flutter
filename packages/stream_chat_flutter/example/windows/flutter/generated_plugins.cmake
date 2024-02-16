@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   dart_vlc
   desktop_drop
   file_selector_windows
+  record_windows
   share_plus
   sqlite3_flutter_libs
   thumblr_windows

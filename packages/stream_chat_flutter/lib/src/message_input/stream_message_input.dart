@@ -151,6 +151,7 @@ class StreamMessageInput extends StatefulWidget {
     this.ogPreviewFilter = _defaultOgPreviewFilter,
     this.hintGetter = _defaultHintGetter,
     this.contentInsertionConfiguration,
+    this.recordingController,
   });
 
   /// The predicate used to send a message on desktop/web
@@ -346,6 +347,9 @@ class StreamMessageInput extends StatefulWidget {
   /// {@macro flutter.widgets.editableText.contentInsertionConfiguration}
   final ContentInsertionConfiguration? contentInsertionConfiguration;
 
+  /// The controller for the audio recording.
+  final StreamDefaultRecordingController? recordingController;
+
   static String? _defaultHintGetter(
     BuildContext context,
     HintType type,
@@ -414,10 +418,37 @@ class StreamMessageInputState extends State<StreamMessageInput>
       widget.focusNode ?? (_focusNode ??= FocusNode());
   FocusNode? _focusNode;
 
+  StreamRecordingController get _effectiveRecordingController =>
+      widget.recordingController ?? _recordingController!;
+
+  StreamRecordingController? _recordingController;
+
   StreamMessageInputController get _effectiveController =>
       widget.messageInputController ?? _controller!.value;
   StreamRestorableMessageInputController? _controller;
 
+  void _createRecordingController() {
+    if (widget.recordingController != null) return;
+    _recordingController = StreamDefaultRecordingController(
+      onRecordingLocked: () {
+        _effectiveController.isRecordingLocked = true;
+      },
+      onRecordingStart: () {
+        _effectiveController.isRecordingAudio = true;
+      },
+      onRecordingEnd: () {
+        _effectiveController
+          ..isRecordingAudio = false
+          ..isRecordingLocked = false;
+      },
+      onRecordingCanceled: () {
+        _effectiveController
+          ..isRecordingAudio = false
+          ..isRecordingLocked = false;
+      },
+    );
+  }
+  
   void _createLocalController([Message? message]) {
     assert(_controller == null, '');
     _controller = StreamRestorableMessageInputController(message: message);
@@ -450,6 +481,10 @@ class StreamMessageInputState extends State<StreamMessageInput>
       _initialiseEffectiveController();
     }
     _effectiveFocusNode.addListener(_focusNodeListener);
+
+    if (widget.recordingController == null) {
+      _createRecordingController();
+    }
   }
 
   @override
@@ -736,15 +771,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
             _buildSendButton(context)
           else
             StreamAudioMessageSendButton(
-              onRecordingStart: () {
-                _effectiveController.isRecordingAudio = true;
-              },
-              onRecordingEnd: () {
-                _effectiveController.isRecordingAudio = false;
-              },
-              onRecordingCanceled: () {
-                _effectiveController.isRecordingAudio = false;
-              },
+              recordingController: _effectiveRecordingController,
             ),
       ],
     );
