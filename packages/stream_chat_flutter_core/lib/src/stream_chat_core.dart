@@ -110,6 +110,10 @@ class StreamChatCoreState extends State<StreamChatCore>
 
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
 
+// convert the onConnectivityChangedController to a stream
+  StreamController<ConnectivityResult> _onConnectivityChangedController =
+      StreamController();
+
   var _isInForeground = true;
   var _isConnectionAvailable = true;
 
@@ -124,9 +128,16 @@ class StreamChatCoreState extends State<StreamChatCore>
     Stream<ConnectivityResult>? connectivityStream,
   ]) {
     if (_connectivitySubscription == null) {
-      connectivityStream ??= Connectivity().onConnectivityChanged;
-      _connectivitySubscription =
-          connectivityStream.distinct().listen((result) {
+      Connectivity().onConnectivityChanged.listen((event) {
+        if (event.contains(ConnectivityResult.none)) {
+          _onConnectivityChangedController.add(ConnectivityResult.none);
+        } else {
+          _onConnectivityChangedController.add(event.first);
+        }
+      });
+
+      connectivityStream ??= _onConnectivityChangedController.stream;
+      _connectivitySubscription = connectivityStream.listen((result) {
         _isConnectionAvailable = result != ConnectivityResult.none;
         if (!_isInForeground) return;
         if (_isConnectionAvailable) {
@@ -148,6 +159,7 @@ class StreamChatCoreState extends State<StreamChatCore>
       _connectivitySubscription?.cancel();
       _connectivitySubscription = null;
     }
+    _onConnectivityChangedController.close();
   }
 
   @override
